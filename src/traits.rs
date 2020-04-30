@@ -177,7 +177,16 @@ where
     fn height(&self) -> u32;
 
     /// Transmit a full frame to the SRAM of the EPD
-    fn update_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error>;
+    fn update_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
+        self.update_frame_stream(spi, BufferedFrame::new(buffer))
+    }
+
+    /// Transmit a full frame to the SRAM of the EPD from a streaming iterator
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error>;
 
     /// Transmits partial data to the SRAM of the EPD
     ///
@@ -227,4 +236,38 @@ where
     /// but in the case you send data and commands directly you might need to check
     /// if the device is still busy
     fn is_busy(&self) -> bool;
+}
+
+/// Iterator which streams pixels.
+///
+/// This type removes the need for a full screen buffer and allows usage on very memory-constrained
+/// devices such as small microcontrollers.
+pub trait DisplayStream {
+    /// Returns the next section of pixels.
+    fn next<'a>(&'a mut self) -> Option<&'a [u8]>;
+}
+
+pub struct BufferedFrame<'a> {
+    buffer: &'a [u8],
+    called: bool,
+}
+
+impl<'a> BufferedFrame<'a> {
+    pub fn new(buffer: &'a [u8]) -> Self {
+        BufferedFrame {
+            buffer,
+            called: false,
+        }
+    }
+}
+
+impl<'a> DisplayStream for BufferedFrame<'a> {
+    fn next<'b>(&'b mut self) -> Option<&'b [u8]> {
+        if self.called {
+            None
+        } else {
+            self.called = true;
+            Some(self.buffer)
+        }
+    }
 }

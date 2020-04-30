@@ -17,7 +17,7 @@ use embedded_hal::{
 
 use crate::color::Color;
 use crate::interface::DisplayInterface;
-use crate::traits::{InternalWiAdditions, RefreshLUT, WaveshareDisplay};
+use crate::traits::{DisplayStream, InternalWiAdditions, RefreshLUT, WaveshareDisplay};
 
 pub(crate) mod command;
 use self::command::Command;
@@ -130,6 +130,18 @@ where
         Ok(())
     }
 
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
+        self.interface.stream_data(spi, stream)?;
+        Ok(())
+    }
+
     fn update_partial_frame(
         &mut self,
         _spi: &mut SPI,
@@ -197,6 +209,7 @@ where
     }
 }
 
+// TODO: Why is this required?
 impl<SPI, CS, BUSY, DC, RST> EPD7in5<SPI, CS, BUSY, DC, RST>
 where
     SPI: Write<u8>,

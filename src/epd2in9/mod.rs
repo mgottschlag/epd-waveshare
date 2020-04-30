@@ -204,6 +204,19 @@ where
         Ok(())
     }
 
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        self.use_full_frame(spi)?;
+
+        self.interface.cmd(spi, Command::WRITE_RAM)?;
+        self.interface.stream_data(spi, stream)?;
+        Ok(())
+    }
+
     //TODO: update description: last 3 bits will be ignored for width and x_pos
     fn update_partial_frame(
         &mut self,

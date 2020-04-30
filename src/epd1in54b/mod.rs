@@ -7,7 +7,7 @@ use embedded_hal::{
 
 use crate::interface::DisplayInterface;
 use crate::traits::{
-    InternalWiAdditions, RefreshLUT, WaveshareDisplay, WaveshareThreeColorDisplay,
+    DisplayStream, InternalWiAdditions, RefreshLUT, WaveshareDisplay, WaveshareThreeColorDisplay,
 };
 
 //The Lookup Tables for the Display
@@ -215,6 +215,39 @@ where
             // Two bits per pixel
             let expanded = expand_bits(*b);
             self.interface.data(spi, &expanded)?;
+        }
+
+        //NOTE: Example code has a delay here
+
+        // Clear the read layer
+        let color = self.color.get_byte_value();
+        let nbits = WIDTH * (HEIGHT / 8);
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
+        self.interface.data_x_times(spi, color, nbits)?;
+
+        //NOTE: Example code has a delay here
+        Ok(())
+    }
+
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        mut stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        self.send_resolution(spi)?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+
+        while let Some(buffer) = stream.next() {
+            for b in buffer {
+                // Two bits per pixel
+                let expanded = expand_bits(*b);
+                self.interface.data(spi, &expanded)?;
+            }
         }
 
         //NOTE: Example code has a delay here

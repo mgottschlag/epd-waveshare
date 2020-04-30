@@ -13,7 +13,7 @@ use embedded_hal::{
 
 use crate::color::Color;
 use crate::interface::DisplayInterface;
-use crate::traits::{InternalWiAdditions, RefreshLUT, WaveshareDisplay};
+use crate::traits::{DisplayStream, InternalWiAdditions, RefreshLUT, WaveshareDisplay};
 
 pub(crate) mod command;
 use self::command::Command;
@@ -154,6 +154,29 @@ where
                 data |= if temp & 0x80 == 0 { 0x00 } else { 0x03 };
                 temp <<= 1;
                 self.send_data(spi, &[data])?;
+            }
+        }
+        Ok(())
+    }
+
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        mut stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        self.command(spi, Command::DATA_START_TRANSMISSION_1)?;
+        while let Some(buffer) = stream.next() {
+            for byte in buffer {
+                let mut temp = *byte;
+                for _ in 0..4 {
+                    let mut data = if temp & 0x80 == 0 { 0x00 } else { 0x03 };
+                    data <<= 4;
+                    temp <<= 1;
+                    data |= if temp & 0x80 == 0 { 0x00 } else { 0x03 };
+                    temp <<= 1;
+                    self.send_data(spi, &[data])?;
+                }
             }
         }
         Ok(())

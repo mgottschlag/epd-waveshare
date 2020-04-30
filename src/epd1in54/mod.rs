@@ -61,7 +61,7 @@ use crate::type_a::{
 
 use crate::color::Color;
 
-use crate::traits::{RefreshLUT, WaveshareDisplay};
+use crate::traits::{DisplayStream, RefreshLUT, WaveshareDisplay};
 
 use crate::interface::DisplayInterface;
 
@@ -202,6 +202,18 @@ where
         self.use_full_frame(spi)?;
         self.interface
             .cmd_with_data(spi, Command::WRITE_RAM, buffer)?;
+        Ok(())
+    }
+
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        self.use_full_frame(spi)?;
+        self.interface.cmd(spi, Command::WRITE_RAM)?;
+        self.interface.stream_data(spi, stream)?;
         Ok(())
     }
 

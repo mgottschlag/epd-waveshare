@@ -55,7 +55,7 @@ use embedded_hal::{
 };
 
 use crate::interface::DisplayInterface;
-use crate::traits::{InternalWiAdditions, RefreshLUT, WaveshareDisplay};
+use crate::traits::{DisplayStream, InternalWiAdditions, RefreshLUT, WaveshareDisplay};
 
 //The Lookup Tables for the Display
 mod constants;
@@ -217,6 +217,34 @@ where
 
         self.interface
             .cmd_with_data(spi, Command::DATA_START_TRANSMISSION_2, buffer)?;
+        Ok(())
+    }
+
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        let color_value = self.color.get_byte_value();
+
+        self.send_resolution(spi)?;
+
+        self.interface
+            .cmd_with_data(spi, Command::VCM_DC_SETTING, &[0x12])?;
+
+        //VBDF 17|D7 VBDW 97  VBDB 57  VBDF F7  VBDW 77  VBDB 37  VBDR B7
+        self.interface
+            .cmd_with_data(spi, Command::VCOM_AND_DATA_INTERVAL_SETTING, &[0x97])?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+        self.interface
+            .data_x_times(spi, color_value, WIDTH / 8 * HEIGHT)?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
+        self.interface.stream_data(spi, stream)?;
         Ok(())
     }
 

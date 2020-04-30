@@ -60,7 +60,7 @@ use embedded_hal::{
 
 use crate::interface::DisplayInterface;
 use crate::traits::{
-    InternalWiAdditions, RefreshLUT, WaveshareDisplay, WaveshareThreeColorDisplay,
+    DisplayStream, InternalWiAdditions, RefreshLUT, WaveshareDisplay, WaveshareThreeColorDisplay,
 };
 
 /// Width of epd2in9bc in pixels
@@ -261,6 +261,27 @@ where
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
 
         self.interface.data(spi, &buffer)?;
+
+        // Clear the chromatic layer
+        let color = self.color.get_byte_value();
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
+        self.interface.data_x_times(spi, color, NUM_DISPLAY_BITS)?;
+
+        self.wait_until_idle();
+        Ok(())
+    }
+
+    fn update_frame_stream<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+
+        self.interface.stream_data(spi, stream)?;
 
         // Clear the chromatic layer
         let color = self.color.get_byte_value();

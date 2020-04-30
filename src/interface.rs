@@ -1,4 +1,5 @@
 use crate::traits::Command;
+use crate::traits::DisplayStream;
 use core::marker::PhantomData;
 use embedded_hal::{
     blocking::{delay::*, spi::Write},
@@ -58,6 +59,21 @@ where
 
         // Transfer data (u8-array) over spi
         self.write(spi, data)
+    }
+
+    pub(crate) fn stream_data<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        mut stream: S,
+    ) -> Result<(), SPI::Error> {
+        // high for data
+        let _ = self.dc.set_high();
+
+        // Transfer data (u8-array) over spi
+        while let Some(data) = stream.next() {
+            self.write(spi, data)?;
+        }
+        Ok(())
     }
 
     /// Basic function for sending [Commands](Command) and the data belonging to it.
