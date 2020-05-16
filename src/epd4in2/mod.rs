@@ -55,7 +55,9 @@ use embedded_hal::{
 };
 
 use crate::interface::DisplayInterface;
-use crate::traits::{DisplayStream, InternalWiAdditions, RefreshLUT, WaveshareDisplay};
+use crate::traits::{
+    DisplayStream, InternalWiAdditions, QuickRefresh, RefreshLUT, WaveshareDisplay,
+};
 
 //The Lookup Tables for the Display
 mod constants;
@@ -356,6 +358,37 @@ where
 
     fn is_busy(&self) -> bool {
         self.interface.is_busy(IS_BUSY_LOW)
+    }
+}
+
+impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RST>
+where
+    SPI: Write<u8>,
+    CS: OutputPin,
+    BUSY: InputPin,
+    DC: OutputPin,
+    RST: OutputPin,
+{
+    fn stream_old_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+        self.interface.stream_data(spi, stream)?;
+        Ok(())
+    }
+
+    fn stream_new_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error> {
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
+        self.interface.stream_data(spi, stream)?;
+        Ok(())
     }
 }
 

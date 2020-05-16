@@ -238,6 +238,29 @@ where
     fn is_busy(&self) -> bool;
 }
 
+/// Functions to support quick refresh.
+///
+/// For quick refresh, the display needs knowledge of the current state of the display to choose
+/// the right LUT for the transition between old and new color.
+pub trait QuickRefresh<SPI>
+where
+    SPI: Write<u8>,
+{
+    /// Updates the old frame.
+    fn stream_old_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error>;
+
+    /// Updates the new frame.
+    fn stream_new_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+    ) -> Result<(), SPI::Error>;
+}
+
 /// Iterator which streams pixels.
 ///
 /// This type removes the need for a full screen buffer and allows usage on very memory-constrained
