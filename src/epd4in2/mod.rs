@@ -93,13 +93,13 @@ pub struct EPD4in2<SPI, CS, BUSY, DC, RST> {
 }
 
 impl<SPI, CS, BUSY, DC, RST> InternalWiAdditions<SPI, CS, BUSY, DC, RST>
-    for EPD4in2<SPI, CS, BUSY, DC, RST>
-where
-    SPI: Write<u8>,
-    CS: OutputPin,
-    BUSY: InputPin,
-    DC: OutputPin,
-    RST: OutputPin,
+for EPD4in2<SPI, CS, BUSY, DC, RST>
+    where
+        SPI: Write<u8>,
+        CS: OutputPin,
+        BUSY: InputPin,
+        DC: OutputPin,
+        RST: OutputPin,
 {
     fn init<DELAY: DelayMs<u8>>(
         &mut self,
@@ -121,7 +121,7 @@ where
             .cmd_with_data(spi, Command::BOOSTER_SOFT_START, &[0x17, 0x17, 0x17])?;
 
         // power on
-        self.command(spi, Command::POWER_ON)?;
+        self.interface.cmd(spi, Command::POWER_ON)?;
         delay.delay_ms(5);
         self.wait_until_idle();
 
@@ -151,13 +151,13 @@ where
 }
 
 impl<SPI, CS, BUSY, DC, RST> WaveshareDisplay<SPI, CS, BUSY, DC, RST>
-    for EPD4in2<SPI, CS, BUSY, DC, RST>
-where
-    SPI: Write<u8>,
-    CS: OutputPin,
-    BUSY: InputPin,
-    DC: OutputPin,
-    RST: OutputPin,
+for EPD4in2<SPI, CS, BUSY, DC, RST>
+    where
+        SPI: Write<u8>,
+        CS: OutputPin,
+        BUSY: InputPin,
+        DC: OutputPin,
+        RST: OutputPin,
 {
     fn new<DELAY: DelayMs<u8>>(
         spi: &mut SPI,
@@ -193,15 +193,15 @@ where
         self.wait_until_idle();
         self.interface
             .cmd_with_data(spi, Command::VCOM_AND_DATA_INTERVAL_SETTING, &[0x17])?; //border floating
-        self.command(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
-        self.command(spi, Command::PANEL_SETTING)?;
+        self.interface.cmd(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
+        self.interface.cmd(spi, Command::PANEL_SETTING)?;
 
-        self.command(spi, Command::POWER_SETTING)?; //VG&VS to 0V fast
+        self.interface.cmd(spi, Command::POWER_SETTING)?; //VG&VS to 0V fast
         for _ in 0..4 {
-            self.send_data(spi, &[0x00])?;
+            self.interface.data(spi, &[0x00])?;
         }
 
-        self.command(spi, Command::POWER_OFF)?;
+        self.interface.cmd(spi, Command::POWER_OFF)?;
         self.wait_until_idle();
         self.interface
             .cmd_with_data(spi, Command::DEEP_SLEEP, &[0xA5])?;
@@ -256,46 +256,46 @@ where
             //return Err("Wrong buffersize");
         }
 
-        self.command(spi, Command::PARTIAL_IN)?;
-        self.command(spi, Command::PARTIAL_WINDOW)?;
-        self.send_data(spi, &[(x >> 8) as u8])?;
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+        self.interface.data(spi, &[(x >> 8) as u8])?;
         let tmp = x & 0xf8;
-        self.send_data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
+        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
         let tmp = tmp + width - 1;
-        self.send_data(spi, &[(tmp >> 8) as u8])?;
-        self.send_data(spi, &[(tmp | 0x07) as u8])?;
+        self.interface.data(spi, &[(tmp >> 8) as u8])?;
+        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.send_data(spi, &[(y >> 8) as u8])?;
-        self.send_data(spi, &[y as u8])?;
+        self.interface.data(spi, &[(y >> 8) as u8])?;
+        self.interface.data(spi, &[y as u8])?;
 
-        self.send_data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.send_data(spi, &[(y + height - 1) as u8])?;
+        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
+        self.interface.data(spi, &[(y + height - 1) as u8])?;
 
-        self.send_data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
 
         //TODO: handle dtm somehow
         let is_dtm1 = false;
         if is_dtm1 {
-            self.command(spi, Command::DATA_START_TRANSMISSION_1)? //TODO: check if data_start transmission 1 also needs "old"/background data here
+            self.interface.cmd(spi, Command::DATA_START_TRANSMISSION_1)? //TODO: check if data_start transmission 1 also needs "old"/background data here
         } else {
-            self.command(spi, Command::DATA_START_TRANSMISSION_2)?
+            self.interface.cmd(spi, Command::DATA_START_TRANSMISSION_2)?
         }
 
-        self.send_data(spi, buffer)?;
+        self.interface.data(spi, buffer)?;
 
-        self.command(spi, Command::PARTIAL_OUT)?;
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 
     fn display_frame(&mut self, spi: &mut SPI) -> Result<(), SPI::Error> {
         self.wait_until_idle();
-        self.command(spi, Command::DISPLAY_REFRESH)?;
+        self.interface.cmd(spi, Command::DISPLAY_REFRESH)?;
         Ok(())
     }
 
     fn update_and_display_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
         self.update_frame(spi, buffer)?;
-        self.command(spi, Command::DISPLAY_REFRESH)?;
+        self.interface.cmd(spi, Command::DISPLAY_REFRESH)?;
         Ok(())
     }
 
@@ -362,12 +362,12 @@ where
 }
 
 impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RST>
-where
-    SPI: Write<u8>,
-    CS: OutputPin,
-    BUSY: InputPin,
-    DC: OutputPin,
-    RST: OutputPin,
+    where
+        SPI: Write<u8>,
+        CS: OutputPin,
+        BUSY: InputPin,
+        DC: OutputPin,
+        RST: OutputPin,
 {
     fn stream_old_frame<S: DisplayStream>(
         &mut self,
@@ -398,7 +398,7 @@ where
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
 
-        self.send_data(spi, buffer)?;
+        self.interface.data(spi, buffer)?;
         //        self.interface
         //            .data_x_times(spi, color_value, WIDTH / 8 * HEIGHT)?;
 
@@ -414,7 +414,7 @@ where
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
 
-        self.send_data(spi, buffer)?;
+        self.interface.data(spi, buffer)?;
         //        self.interface
         //            .data_x_times(spi, color_value, WIDTH / 8 * HEIGHT)?;
         //
@@ -438,29 +438,29 @@ where
             //return Err("Wrong buffersize");
         }
 
-        self.command(spi, Command::PARTIAL_IN)?;
-        self.command(spi, Command::PARTIAL_WINDOW)?;
-        self.send_data(spi, &[(x >> 8) as u8])?;
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+        self.interface.data(spi, &[(x >> 8) as u8])?;
         let tmp = x & 0xf8;
-        self.send_data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
+        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
         let tmp = tmp + width - 1;
-        self.send_data(spi, &[(tmp >> 8) as u8])?;
-        self.send_data(spi, &[(tmp | 0x07) as u8])?;
+        self.interface.data(spi, &[(tmp >> 8) as u8])?;
+        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.send_data(spi, &[(y >> 8) as u8])?;
-        self.send_data(spi, &[y as u8])?;
+        self.interface.data(spi, &[(y >> 8) as u8])?;
+        self.interface.data(spi, &[y as u8])?;
 
-        self.send_data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.send_data(spi, &[(y + height - 1) as u8])?;
+        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
+        self.interface.data(spi, &[(y + height - 1) as u8])?;
 
-        self.send_data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
 
-        self.send_data(spi, buffer)?;
+        self.interface.data(spi, buffer)?;
 
-        self.command(spi, Command::PARTIAL_OUT)?;
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 
@@ -479,45 +479,53 @@ where
             //return Err("Wrong buffersize");
         }
 
-        self.command(spi, Command::PARTIAL_IN)?;
-        self.command(spi, Command::PARTIAL_WINDOW)?;
-        self.send_data(spi, &[(x >> 8) as u8])?;
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+        self.interface.data(spi, &[(x >> 8) as u8])?;
         let tmp = x & 0xf8;
-        self.send_data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
+        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
         let tmp = tmp + width - 1;
-        self.send_data(spi, &[(tmp >> 8) as u8])?;
-        self.send_data(spi, &[(tmp | 0x07) as u8])?;
+        self.interface.data(spi, &[(tmp >> 8) as u8])?;
+        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.send_data(spi, &[(y >> 8) as u8])?;
-        self.send_data(spi, &[y as u8])?;
+        self.interface.data(spi, &[(y >> 8) as u8])?;
+        self.interface.data(spi, &[y as u8])?;
 
-        self.send_data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.send_data(spi, &[(y + height - 1) as u8])?;
+        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
+        self.interface.data(spi, &[(y + height - 1) as u8])?;
 
-        self.send_data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
 
-        self.send_data(spi, buffer)?;
+        self.interface.data(spi, buffer)?;
 
-        self.command(spi, Command::PARTIAL_OUT)?;
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 }
 
 impl<SPI, CS, BUSY, DC, RST> EPD4in2<SPI, CS, BUSY, DC, RST>
-where
-    SPI: Write<u8>,
-    CS: OutputPin,
-    BUSY: InputPin,
-    DC: OutputPin,
-    RST: OutputPin,
+    where
+        SPI: Write<u8>,
+        CS: OutputPin,
+        BUSY: InputPin,
+        DC: OutputPin,
+        RST: OutputPin,
 {
+    #[deprecated(
+    since = "0.2.1",
+    note = "Please use the `self.interface.cmd` method instead"
+    )]
     fn command(&mut self, spi: &mut SPI, command: Command) -> Result<(), SPI::Error> {
         self.interface.cmd(spi, command)
     }
 
+    #[deprecated(
+    since = "0.4.1",
+    note = "Please use the `self.interface.data` method instead"
+    )]
     fn send_data(&mut self, spi: &mut SPI, data: &[u8]) -> Result<(), SPI::Error> {
         self.interface.data(spi, data)
     }
@@ -539,11 +547,11 @@ where
         let w = self.width();
         let h = self.height();
 
-        self.command(spi, Command::RESOLUTION_SETTING)?;
-        self.send_data(spi, &[(w >> 8) as u8])?;
-        self.send_data(spi, &[w as u8])?;
-        self.send_data(spi, &[(h >> 8) as u8])?;
-        self.send_data(spi, &[h as u8])
+        self.interface.cmd(spi, Command::RESOLUTION_SETTING)?;
+        self.interface.data(spi, &[(w >> 8) as u8])?;
+        self.interface.data(spi, &[w as u8])?;
+        self.interface.data(spi, &[(h >> 8) as u8])?;
+        self.interface.data(spi, &[h as u8])
     }
 
     fn set_lut_helper(
