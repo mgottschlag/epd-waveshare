@@ -259,6 +259,12 @@ where
         spi: &mut SPI,
         stream: S,
     ) -> Result<(), SPI::Error>;
+
+    /// Updates the old frame.
+    fn update_old_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error>;
+
+    /// Updates the new frame.
+    fn update_new_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error>;
 }
 
 /// Iterator which streams pixels.
