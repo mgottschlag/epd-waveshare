@@ -260,6 +260,28 @@ where
         stream: S,
     ) -> Result<(), SPI::Error>;
 
+    /// Updates the old frame at a specific location and size.
+    fn stream_partial_old_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error>;
+
+    /// Updates the new frame at a specific location and size.
+    fn stream_partial_new_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error>;
+
     /// Updates the old frame.
     fn update_old_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error>;
 

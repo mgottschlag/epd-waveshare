@@ -276,9 +276,11 @@ for EPD4in2<SPI, CS, BUSY, DC, RST>
         //TODO: handle dtm somehow
         let is_dtm1 = false;
         if is_dtm1 {
-            self.interface.cmd(spi, Command::DATA_START_TRANSMISSION_1)? //TODO: check if data_start transmission 1 also needs "old"/background data here
+            self.interface
+                .cmd(spi, Command::DATA_START_TRANSMISSION_1)? //TODO: check if data_start transmission 1 also needs "old"/background data here
         } else {
-            self.interface.cmd(spi, Command::DATA_START_TRANSMISSION_2)?
+            self.interface
+                .cmd(spi, Command::DATA_START_TRANSMISSION_2)?
         }
 
         self.interface.data(spi, buffer)?;
@@ -391,8 +393,54 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
         Ok(())
     }
 
+    fn stream_partial_old_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error> {
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+
+        self.shift_display(spi, x, y, width, height)?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+
+        self.interface.stream_data(spi, stream)?;
+
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+        Ok(())
+    }
+
+    fn stream_partial_new_frame<S: DisplayStream>(
+        &mut self,
+        spi: &mut SPI,
+        stream: S,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error> {
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+
+        self.shift_display(spi, x, y, width, height)?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+
+        self.interface.stream_data(spi, stream)?;
+
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+        Ok(())
+    }
+
     fn update_old_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
-        //        self.wait_until_idle();
+        self.wait_until_idle();
         //        let color_value = self.color.get_byte_value();
 
         self.interface
@@ -408,7 +456,7 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
     }
 
     fn update_new_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
-        //        self.wait_until_idle();
+        self.wait_until_idle();
         //        let color_value = self.color.get_byte_value();
 
         self.interface
@@ -440,20 +488,8 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
 
         self.interface.cmd(spi, Command::PARTIAL_IN)?;
         self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
-        self.interface.data(spi, &[(x >> 8) as u8])?;
-        let tmp = x & 0xf8;
-        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
-        let tmp = tmp + width - 1;
-        self.interface.data(spi, &[(tmp >> 8) as u8])?;
-        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.interface.data(spi, &[(y >> 8) as u8])?;
-        self.interface.data(spi, &[y as u8])?;
-
-        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.interface.data(spi, &[(y + height - 1) as u8])?;
-
-        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.shift_display(spi, x, y, width, height)?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
@@ -481,20 +517,8 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
 
         self.interface.cmd(spi, Command::PARTIAL_IN)?;
         self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
-        self.interface.data(spi, &[(x >> 8) as u8])?;
-        let tmp = x & 0xf8;
-        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
-        let tmp = tmp + width - 1;
-        self.interface.data(spi, &[(tmp >> 8) as u8])?;
-        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.interface.data(spi, &[(y >> 8) as u8])?;
-        self.interface.data(spi, &[y as u8])?;
-
-        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.interface.data(spi, &[(y + height - 1) as u8])?;
-
-        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.shift_display(spi, x, y, width, height)?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
@@ -578,6 +602,34 @@ impl<SPI, CS, BUSY, DC, RST> EPD4in2<SPI, CS, BUSY, DC, RST>
 
         // LUT BLACK to BLACK
         self.cmd_with_data(spi, Command::LUT_BLACK_TO_BLACK, lut_bb)?;
+        Ok(())
+    }
+
+    /// I think this sets up the display to send pixel data to a custom
+    /// starting point.
+    pub fn shift_display(
+        &mut self,
+        spi: &mut SPI,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error> {
+        self.interface.data(spi, &[(x >> 8) as u8])?;
+        let tmp = x & 0xf8;
+        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
+        let tmp = tmp + width - 1;
+        self.interface.data(spi, &[(tmp >> 8) as u8])?;
+        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
+
+        self.interface.data(spi, &[(y >> 8) as u8])?;
+        self.interface.data(spi, &[y as u8])?;
+
+        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
+        self.interface.data(spi, &[(y + height - 1) as u8])?;
+
+        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+
         Ok(())
     }
 }
