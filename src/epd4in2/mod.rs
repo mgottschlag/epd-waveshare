@@ -73,7 +73,7 @@ const IS_BUSY_LOW: bool = true;
 
 use crate::color::Color;
 
-pub(crate) mod command;
+pub mod command;
 use self::command::Command;
 
 #[cfg(feature = "graphics")]
@@ -85,7 +85,7 @@ pub use self::graphics::Display4in2;
 ///
 pub struct EPD4in2<SPI, CS, BUSY, DC, RST> {
     /// Connection Interface
-    interface: DisplayInterface<SPI, CS, BUSY, DC, RST>,
+    pub interface: DisplayInterface<SPI, CS, BUSY, DC, RST>,
     /// Background Color
     color: Color,
     /// Refresh LUT
@@ -258,20 +258,8 @@ for EPD4in2<SPI, CS, BUSY, DC, RST>
 
         self.interface.cmd(spi, Command::PARTIAL_IN)?;
         self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
-        self.interface.data(spi, &[(x >> 8) as u8])?;
-        let tmp = x & 0xf8;
-        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
-        let tmp = tmp + width - 1;
-        self.interface.data(spi, &[(tmp >> 8) as u8])?;
-        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.interface.data(spi, &[(y >> 8) as u8])?;
-        self.interface.data(spi, &[y as u8])?;
-
-        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.interface.data(spi, &[(y + height - 1) as u8])?;
-
-        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.shift_display(spi, x, y, width, height)?;
 
         //TODO: handle dtm somehow
         let is_dtm1 = false;
@@ -405,7 +393,7 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
         self.interface.cmd(spi, Command::PARTIAL_IN)?;
         self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
-        self.shift_display(spi, x, y, width, height)?;
+        //        self.shift_display(spi, x, y, width, height)?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
@@ -480,14 +468,14 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
         width: u32,
         height: u32,
     ) -> Result<(), SPI::Error> {
-        //        self.wait_until_idle();
+        self.wait_until_idle();
         if buffer.len() as u32 != width / 8 * height {
             //TODO: panic!! or sth like that
             //return Err("Wrong buffersize");
         }
 
-        self.interface.cmd(spi, Command::PARTIAL_IN)?;
-        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+//        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+//        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
         self.shift_display(spi, x, y, width, height)?;
 
@@ -496,7 +484,8 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
 
         self.interface.data(spi, buffer)?;
 
-        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+        // todo: Is it safe to assume this is always followed by `update_partial_new_frame`?
+        //        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 
@@ -509,23 +498,24 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
         width: u32,
         height: u32,
     ) -> Result<(), SPI::Error> {
-        //        self.wait_until_idle();
+        self.wait_until_idle();
         if buffer.len() as u32 != width / 8 * height {
             //TODO: panic!! or sth like that
             //return Err("Wrong buffersize");
         }
 
-        self.interface.cmd(spi, Command::PARTIAL_IN)?;
-        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+        // todo: Is it safe to assume this is always preceded by `update_partial_old_frame`?
+        //        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        //        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
-        self.shift_display(spi, x, y, width, height)?;
+//        self.shift_display(spi, x, y, width, height)?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
 
         self.interface.data(spi, buffer)?;
 
-        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+//        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 }
