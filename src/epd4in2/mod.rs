@@ -403,7 +403,7 @@ where
         self.interface.cmd(spi, Command::PARTIAL_IN)?;
         self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
-        //        self.shift_display(spi, x, y, width, height)?;
+        self.shift_display(spi, x, y, width, height)?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
@@ -492,9 +492,6 @@ where
 
         self.interface.data(spi, buffer)?;
 
-        //        self.interface
-        //            .cmd(spi, Command::DATA_STOP)?;
-
         //        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
@@ -524,9 +521,6 @@ where
 
         self.interface.data(spi, buffer)?;
 
-        //        self.interface
-        //            .cmd(spi, Command::DATA_STOP)?;
-
         self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
@@ -544,6 +538,9 @@ where
 
         let color_value = self.color.get_byte_value();
 
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+
         self.shift_display(spi, x, y, width, height)?;
 
         self.interface
@@ -555,6 +552,8 @@ where
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
         self.interface
             .data_x_times(spi, color_value, width / 8 * height)?;
+
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 }
