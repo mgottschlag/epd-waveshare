@@ -93,13 +93,13 @@ pub struct EPD4in2<SPI, CS, BUSY, DC, RST> {
 }
 
 impl<SPI, CS, BUSY, DC, RST> InternalWiAdditions<SPI, CS, BUSY, DC, RST>
-for EPD4in2<SPI, CS, BUSY, DC, RST>
-    where
-        SPI: Write<u8>,
-        CS: OutputPin,
-        BUSY: InputPin,
-        DC: OutputPin,
-        RST: OutputPin,
+    for EPD4in2<SPI, CS, BUSY, DC, RST>
+where
+    SPI: Write<u8>,
+    CS: OutputPin,
+    BUSY: InputPin,
+    DC: OutputPin,
+    RST: OutputPin,
 {
     fn init<DELAY: DelayMs<u8>>(
         &mut self,
@@ -151,13 +151,13 @@ for EPD4in2<SPI, CS, BUSY, DC, RST>
 }
 
 impl<SPI, CS, BUSY, DC, RST> WaveshareDisplay<SPI, CS, BUSY, DC, RST>
-for EPD4in2<SPI, CS, BUSY, DC, RST>
-    where
-        SPI: Write<u8>,
-        CS: OutputPin,
-        BUSY: InputPin,
-        DC: OutputPin,
-        RST: OutputPin,
+    for EPD4in2<SPI, CS, BUSY, DC, RST>
+where
+    SPI: Write<u8>,
+    CS: OutputPin,
+    BUSY: InputPin,
+    DC: OutputPin,
+    RST: OutputPin,
 {
     fn new<DELAY: DelayMs<u8>>(
         spi: &mut SPI,
@@ -208,9 +208,19 @@ for EPD4in2<SPI, CS, BUSY, DC, RST>
         Ok(())
     }
 
+    /// Slow. todo: Figure out when this is requried
     fn update_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
         self.wait_until_idle();
         let color_value = self.color.get_byte_value();
+
+        self.send_resolution(spi)?;
+
+        self.interface
+            .cmd_with_data(spi, Command::VCM_DC_SETTING, &[0x12])?;
+
+        //VBDF 17|D7 VBDW 97  VBDB 57  VBDF F7  VBDW 77  VBDB 37  VBDR B7
+        self.interface
+            .cmd_with_data(spi, Command::VCOM_AND_DATA_INTERVAL_SETTING, &[0x97])?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
@@ -352,12 +362,12 @@ for EPD4in2<SPI, CS, BUSY, DC, RST>
 }
 
 impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RST>
-    where
-        SPI: Write<u8>,
-        CS: OutputPin,
-        BUSY: InputPin,
-        DC: OutputPin,
-        RST: OutputPin,
+where
+    SPI: Write<u8>,
+    CS: OutputPin,
+    BUSY: InputPin,
+    DC: OutputPin,
+    RST: OutputPin,
 {
     fn stream_old_frame<S: DisplayStream>(
         &mut self,
@@ -429,33 +439,31 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
 
     fn update_old_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
         self.wait_until_idle();
-        //        let color_value = self.color.get_byte_value();
+
+        // todo: Eval if you need these 3 res setting items.
+        self.send_resolution(spi)?;
+        self.interface
+            .cmd_with_data(spi, Command::VCM_DC_SETTING, &[0x12])?;
+        //VBDF 17|D7 VBDW 97  VBDB 57  VBDF F7  VBDW 77  VBDB 37  VBDR B7
+        self.interface
+            .cmd_with_data(spi, Command::VCOM_AND_DATA_INTERVAL_SETTING, &[0x97])?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
 
         self.interface.data(spi, buffer)?;
-        //        self.interface
-        //            .data_x_times(spi, color_value, WIDTH / 8 * HEIGHT)?;
 
-        //        self.interface
-        //            .cmd_with_data(spi, Command::DATA_START_TRANSMISSION_2, buffer)?;
         Ok(())
     }
 
     fn update_new_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
         self.wait_until_idle();
-        //        let color_value = self.color.get_byte_value();
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
 
         self.interface.data(spi, buffer)?;
-        //        self.interface
-        //            .data_x_times(spi, color_value, WIDTH / 8 * HEIGHT)?;
-        //
-        //        self.interface
-        //            .cmd_with_data(spi, Command::DATA_START_TRANSMISSION_2, buffer)?;
+
         Ok(())
     }
 
@@ -474,8 +482,8 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
             //return Err("Wrong buffersize");
         }
 
-//        self.interface.cmd(spi, Command::PARTIAL_IN)?;
-//        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
+        self.interface.cmd(spi, Command::PARTIAL_IN)?;
+        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
         self.shift_display(spi, x, y, width, height)?;
 
@@ -484,7 +492,9 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
 
         self.interface.data(spi, buffer)?;
 
-        // todo: Is it safe to assume this is always followed by `update_partial_new_frame`?
+        //        self.interface
+        //            .cmd(spi, Command::DATA_STOP)?;
+
         //        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
@@ -504,41 +514,71 @@ impl<SPI, CS, BUSY, DC, RST> QuickRefresh<SPI> for EPD4in2<SPI, CS, BUSY, DC, RS
             //return Err("Wrong buffersize");
         }
 
-        // todo: Is it safe to assume this is always preceded by `update_partial_old_frame`?
         //        self.interface.cmd(spi, Command::PARTIAL_IN)?;
         //        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
-//        self.shift_display(spi, x, y, width, height)?;
+        self.shift_display(spi, x, y, width, height)?;
 
         self.interface
             .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
 
         self.interface.data(spi, buffer)?;
 
-//        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+        //        self.interface
+        //            .cmd(spi, Command::DATA_STOP)?;
+
+        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+        Ok(())
+    }
+
+    fn clear_partial_frame(
+        &mut self,
+        spi: &mut SPI,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error> {
+        self.wait_until_idle();
+        self.send_resolution(spi)?;
+
+        let color_value = self.color.get_byte_value();
+
+        self.shift_display(spi, x, y, width, height)?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_1)?;
+        self.interface
+            .data_x_times(spi, color_value, width / 8 * height)?;
+
+        self.interface
+            .cmd(spi, Command::DATA_START_TRANSMISSION_2)?;
+        self.interface
+            .data_x_times(spi, color_value, width / 8 * height)?;
         Ok(())
     }
 }
 
 impl<SPI, CS, BUSY, DC, RST> EPD4in2<SPI, CS, BUSY, DC, RST>
-    where
-        SPI: Write<u8>,
-        CS: OutputPin,
-        BUSY: InputPin,
-        DC: OutputPin,
-        RST: OutputPin,
+where
+    SPI: Write<u8>,
+    CS: OutputPin,
+    BUSY: InputPin,
+    DC: OutputPin,
+
+    RST: OutputPin,
 {
     #[deprecated(
-    since = "0.2.1",
-    note = "Please use the `self.interface.cmd` method instead"
+        since = "0.2.1",
+        note = "Please use the `self.interface.cmd` method instead"
     )]
     fn command(&mut self, spi: &mut SPI, command: Command) -> Result<(), SPI::Error> {
         self.interface.cmd(spi, command)
     }
 
     #[deprecated(
-    since = "0.4.1",
-    note = "Please use the `self.interface.data` method instead"
+        since = "0.4.1",
+        note = "Please use the `self.interface.data` method instead"
     )]
     fn send_data(&mut self, spi: &mut SPI, data: &[u8]) -> Result<(), SPI::Error> {
         self.interface.data(spi, data)

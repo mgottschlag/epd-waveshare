@@ -309,6 +309,18 @@ where
         width: u32,
         height: u32,
     ) -> Result<(), SPI::Error>;
+
+    /// Clears the partial frame buffer on the EPD with the declared background color
+    ///
+    /// The background color can be changed with [`WaveshareDisplay::set_background_color`]
+    fn clear_partial_frame(
+        &mut self,
+        spi: &mut SPI,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), SPI::Error>;
 }
 
 /// Iterator which streams pixels.
