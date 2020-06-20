@@ -467,6 +467,8 @@ where
         Ok(())
     }
 
+    /// Always call `update_partial_new_frame` after this, with buffer-updating code
+    /// between the calls.
     fn update_partial_old_frame(
         &mut self,
         spi: &mut SPI,
@@ -492,10 +494,11 @@ where
 
         self.interface.data(spi, buffer)?;
 
-        //        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 
+    /// Always call `update_partial_old_frame` before this, with buffer-updating code
+    /// between the calls.
     fn update_partial_new_frame(
         &mut self,
         spi: &mut SPI,
@@ -510,9 +513,6 @@ where
             //TODO: panic!! or sth like that
             //return Err("Wrong buffersize");
         }
-
-        //        self.interface.cmd(spi, Command::PARTIAL_IN)?;
-        //        self.interface.cmd(spi, Command::PARTIAL_WINDOW)?;
 
         self.shift_display(spi, x, y, width, height)?;
 
