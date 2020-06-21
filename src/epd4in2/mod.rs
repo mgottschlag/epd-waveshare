@@ -274,11 +274,9 @@ where
         //TODO: handle dtm somehow
         let is_dtm1 = false;
         if is_dtm1 {
-            self.interface
-                .cmd(spi, Command::DATA_START_TRANSMISSION_1)? //TODO: check if data_start transmission 1 also needs "old"/background data here
+            self.command(spi, Command::DATA_START_TRANSMISSION_1)? //TODO: check if data_start transmission 1 also needs "old"/background data here
         } else {
-            self.interface
-                .cmd(spi, Command::DATA_START_TRANSMISSION_2)?
+            self.command(spi, Command::DATA_START_TRANSMISSION_2)?
         }
 
         self.send_data(spi, buffer)?;
