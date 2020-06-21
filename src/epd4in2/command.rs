@@ -10,7 +10,7 @@ use crate::traits;
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone)]
-pub enum Command {
+pub(crate) enum Command {
     /// Set Resolution, LUT selection, BWR pixels, gate scan direction, source shift direction, booster switch, soft reset
     /// One Byte of Data:
     ///     0x0F Red Mode, LUT from OTP

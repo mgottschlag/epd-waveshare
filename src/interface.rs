@@ -8,7 +8,7 @@ use embedded_hal::{
 
 /// The Connection Interface of all (?) Waveshare EPD-Devices
 ///
-pub struct DisplayInterface<SPI, CS, BUSY, DC, RST> {
+pub(crate) struct DisplayInterface<SPI, CS, BUSY, DC, RST> {
     /// SPI
     _spi: PhantomData<SPI>,
     /// CS for SPI
@@ -42,7 +42,7 @@ where
     /// Basic function for sending [Commands](Command).
     ///
     /// Enables direct interaction with the device with the help of [data()](DisplayInterface::data())
-    pub fn cmd<T: Command>(&mut self, spi: &mut SPI, command: T) -> Result<(), SPI::Error> {
+    pub(crate) fn cmd<T: Command>(&mut self, spi: &mut SPI, command: T) -> Result<(), SPI::Error> {
         // low for commands
         let _ = self.dc.set_low();
 

@@ -73,7 +73,7 @@ const IS_BUSY_LOW: bool = true;
 
 use crate::color::Color;
 
-pub mod command;
+pub(crate) mod command;
 use self::command::Command;
 
 #[cfg(feature = "graphics")]
@@ -85,7 +85,7 @@ pub use self::graphics::Display4in2;
 ///
 pub struct EPD4in2<SPI, CS, BUSY, DC, RST> {
     /// Connection Interface
-    pub interface: DisplayInterface<SPI, CS, BUSY, DC, RST>,
+    interface: DisplayInterface<SPI, CS, BUSY, DC, RST>,
     /// Background Color
     color: Color,
     /// Refresh LUT
@@ -121,7 +121,7 @@ where
             .cmd_with_data(spi, Command::BOOSTER_SOFT_START, &[0x17, 0x17, 0x17])?;
 
         // power on
-        self.interface.cmd(spi, Command::POWER_ON)?;
+        self.command(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
         delay.delay_ms(5);
         self.wait_until_idle();
 
@@ -193,15 +193,15 @@ where
         self.wait_until_idle();
         self.interface
             .cmd_with_data(spi, Command::VCOM_AND_DATA_INTERVAL_SETTING, &[0x17])?; //border floating
-        self.interface.cmd(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
-        self.interface.cmd(spi, Command::PANEL_SETTING)?;
+        self.command(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
+        self.command(spi, Command::PANEL_SETTING)?;
 
         self.interface.cmd(spi, Command::POWER_SETTING)?; //VG&VS to 0V fast
         for _ in 0..4 {
-            self.interface.data(spi, &[0x00])?;
+            self.send_data(spi, &[0x00])?;
         }
 
-        self.interface.cmd(spi, Command::POWER_OFF)?;
+        self.command(spi, Command::POWER_OFF)?;
         self.wait_until_idle();
         self.interface
             .cmd_with_data(spi, Command::DEEP_SLEEP, &[0xA5])?;
@@ -567,18 +567,10 @@ where
 
     RST: OutputPin,
 {
-    #[deprecated(
-        since = "0.2.1",
-        note = "Please use the `self.interface.cmd` method instead"
-    )]
     fn command(&mut self, spi: &mut SPI, command: Command) -> Result<(), SPI::Error> {
         self.interface.cmd(spi, command)
     }
 
-    #[deprecated(
-        since = "0.4.1",
-        note = "Please use the `self.interface.data` method instead"
-    )]
     fn send_data(&mut self, spi: &mut SPI, data: &[u8]) -> Result<(), SPI::Error> {
         self.interface.data(spi, data)
     }
@@ -600,11 +592,11 @@ where
         let w = self.width();
         let h = self.height();
 
-        self.interface.cmd(spi, Command::RESOLUTION_SETTING)?;
-        self.interface.data(spi, &[(w >> 8) as u8])?;
-        self.interface.data(spi, &[w as u8])?;
-        self.interface.data(spi, &[(h >> 8) as u8])?;
-        self.interface.data(spi, &[h as u8])
+        self.command(spi, Command::RESOLUTION_SETTING)?;
+        self.send_data(spi, &[(w >> 8) as u8])?;
+        self.send_data(spi, &[w as u8])?;
+        self.send_data(spi, &[(h >> 8) as u8])?;
+        self.send_data(spi, &[h as u8])
     }
 
     fn set_lut_helper(
