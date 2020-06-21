@@ -121,7 +121,7 @@ where
             .cmd_with_data(spi, Command::BOOSTER_SOFT_START, &[0x17, 0x17, 0x17])?;
 
         // power on
-        self.command(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
+        self.command(spi, Command::POWER_ON)?;
         delay.delay_ms(5);
         self.wait_until_idle();
 
@@ -196,7 +196,7 @@ where
         self.command(spi, Command::VCM_DC_SETTING)?; // VCOM to 0V
         self.command(spi, Command::PANEL_SETTING)?;
 
-        self.interface.cmd(spi, Command::POWER_SETTING)?; //VG&VS to 0V fast
+        self.command(spi, Command::POWER_SETTING)?; //VG&VS to 0V fast
         for _ in 0..4 {
             self.send_data(spi, &[0x00])?;
         }
@@ -281,21 +281,21 @@ where
                 .cmd(spi, Command::DATA_START_TRANSMISSION_2)?
         }
 
-        self.interface.data(spi, buffer)?;
+        self.send_data(spi, buffer)?;
 
-        self.interface.cmd(spi, Command::PARTIAL_OUT)?;
+        self.command(spi, Command::PARTIAL_OUT)?;
         Ok(())
     }
 
     fn display_frame(&mut self, spi: &mut SPI) -> Result<(), SPI::Error> {
         self.wait_until_idle();
-        self.interface.cmd(spi, Command::DISPLAY_REFRESH)?;
+        self.command(spi, Command::DISPLAY_REFRESH)?;
         Ok(())
     }
 
     fn update_and_display_frame(&mut self, spi: &mut SPI, buffer: &[u8]) -> Result<(), SPI::Error> {
         self.update_frame(spi, buffer)?;
-        self.interface.cmd(spi, Command::DISPLAY_REFRESH)?;
+        self.command(spi, Command::DISPLAY_REFRESH)?;
         Ok(())
     }
 
@@ -636,20 +636,20 @@ where
         width: u32,
         height: u32,
     ) -> Result<(), SPI::Error> {
-        self.interface.data(spi, &[(x >> 8) as u8])?;
+        self.send_data(spi, &[(x >> 8) as u8])?;
         let tmp = x & 0xf8;
-        self.interface.data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
+        self.send_data(spi, &[tmp as u8])?; // x should be the multiple of 8, the last 3 bit will always be ignored
         let tmp = tmp + width - 1;
-        self.interface.data(spi, &[(tmp >> 8) as u8])?;
-        self.interface.data(spi, &[(tmp | 0x07) as u8])?;
+        self.send_data(spi, &[(tmp >> 8) as u8])?;
+        self.send_data(spi, &[(tmp | 0x07) as u8])?;
 
-        self.interface.data(spi, &[(y >> 8) as u8])?;
-        self.interface.data(spi, &[y as u8])?;
+        self.send_data(spi, &[(y >> 8) as u8])?;
+        self.send_data(spi, &[y as u8])?;
 
-        self.interface.data(spi, &[((y + height - 1) >> 8) as u8])?;
-        self.interface.data(spi, &[(y + height - 1) as u8])?;
+        self.send_data(spi, &[((y + height - 1) >> 8) as u8])?;
+        self.send_data(spi, &[(y + height - 1) as u8])?;
 
-        self.interface.data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
+        self.send_data(spi, &[0x01])?; // Gates scan both inside and outside of the partial window. (default)
 
         Ok(())
     }
